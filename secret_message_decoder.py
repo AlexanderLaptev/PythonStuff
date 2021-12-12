@@ -14,8 +14,13 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-# A CLI decoder for secret messages. Created mainly for decoding secret messages from Andy's Apple Farm, but may be
-# used for any ciphers, I guess.  Morse dict copied from StackOverflow and pretty printed using another short script.
+# A CLI decoder for secret messages. Created mainly for decoding those from Andy's Apple Farm, but may be used for any
+# ASCII (e.g. English) ciphers, I guess.
+#
+# Supports: Atbash cipher, Caesar cipher, Binary, Hexadecimal, Morse code.
+#
+# The script was designed to be imported and then used. If you, however, need to run it right away, simply add a call
+# to main() at the end of the script.
 
 import binascii
 from enum import Enum, auto
@@ -23,7 +28,7 @@ from enum import Enum, auto
 SEPARATOR = '=' * 24
 
 EDIT_COMMAND = 'edit'
-MORSE = {
+MORSE = {  # Copied from StackOverflow and pretty-printed with another small Python script.
     '-': 'T',
     '--': 'M',
     '---': 'O',
@@ -77,6 +82,7 @@ class Mode(Enum):
     MORSE = auto()
 
 
+# Splits `iterable` in chunks of `size` elements. Used by the binary and hexadecimal decoders.
 def chunks(iterable, size):
     for i in range(0, len(iterable), size):
         yield iterable[i:i + size]
@@ -95,10 +101,10 @@ def decrypt_atbash(string: str):
             if is_upper_case:
                 c = c.upper()
             result += c
-    return ''.join(result)
+    return ''.join(result)  # 3 milliseconds saved on concatenating strings is 3 milliseconds!
 
 
-def shift_letters(string: str, shift: int):
+def shift_letters(string: str, shift: int):  # Shift may be both positive and negative.
     result = []
     for char in string:
         is_upper_case = char.isupper()
@@ -117,14 +123,16 @@ def shift_letters(string: str, shift: int):
 
 def sample_caesar(string: str):
     str_length = len(string)
-    print_ellipsis = str_length > SAMPLE_MAX_LENGTH
+    should_print_ellipsis = str_length > SAMPLE_MAX_LENGTH
+
     sample_length = min(str_length, SAMPLE_MAX_LENGTH)
     sample = string[:sample_length]
+
     for shift in range(1, ALPHABET_LENGTH):
         shifted_sample = shift_letters(sample, shift)
         negative_shift = ALPHABET_LENGTH - shift
         message = f'+{shift}/-{negative_shift}:  {shifted_sample}'
-        if print_ellipsis:
+        if should_print_ellipsis:
             message += '...'
         print(message)
 
@@ -184,6 +192,22 @@ def welcome():
     print(SEPARATOR)
 
 
+def decrypt(string: str, mode: Mode):
+    decrypted = None
+    if mode == Mode.ATBASH:  # Had to replace match/case to make it work with Python older than 3.10.
+        decrypted = decrypt_atbash(string)
+    elif mode == Mode.CAESAR:
+        decrypted = decrypt_caesar(string)
+    elif mode == Mode.BINARY:
+        decrypted = decrypt_binary(string)
+    elif mode == Mode.HEXADECIMAL:
+        decrypted = decrypt_hexadecimal(string)
+    elif mode == Mode.MORSE:
+        decrypted = decrypt_morse(string)
+
+    return decrypted
+
+
 def main():
     welcome()
     message = get_message()
@@ -192,6 +216,7 @@ def main():
         print(SEPARATOR)
         cmd = get_command()
         print(SEPARATOR)
+
         if cmd in EXIT_COMMANDS:
             break
         elif cmd == EDIT_COMMAND:
@@ -203,18 +228,8 @@ def main():
                 print('Invalid mode.')
                 continue
 
-            decrypted = None
-            match mode:
-                case Mode.ATBASH:
-                    decrypted = decrypt_atbash(message)
-                case Mode.CAESAR:
-                    decrypted = decrypt_caesar(message)
-                case Mode.BINARY:
-                    decrypted = decrypt_binary(message)
-                case Mode.HEXADECIMAL:
-                    decrypted = decrypt_hexadecimal(message)
-                case Mode.MORSE:
-                    decrypted = decrypt_morse(message)
+            decrypted = decrypt(message, mode)
             if decrypted is None:
                 print("!!! Couldn't decrypt the message !!!")
-            print(f'RESULT: {decrypted}')
+            else:
+                print(f'RESULT: {decrypted}')
