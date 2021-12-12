@@ -14,7 +14,7 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-# A script to extract all unique characters from text files.
+# A script to extract all unique characters from text files. All files must be UTF-8 encoded.
 #
 # * Specify files with the --files (-f) option,
 # * Or provide a batch file with the --batch (-b) option.
