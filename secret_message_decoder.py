@@ -27,7 +27,7 @@ from enum import Enum, auto
 
 SEPARATOR = '=' * 24
 
-EDIT_COMMAND = 'edit'
+NEW_MESSAGE_COMMAND = 'new'
 MORSE = {  # Copied from StackOverflow and pretty-printed with another small Python script.
     '-': 'T',
     '--': 'M',
@@ -140,6 +140,7 @@ def sample_caesar(string: str):
 def decrypt_caesar(string: str):
     sample_caesar(string)
     valid_shift = int(input('Valid shift >> '))
+    print(SEPARATOR)
     return shift_letters(string, valid_shift)
 
 
@@ -163,8 +164,7 @@ def decrypt_morse(string: str):
     for word in words:
         decrypted = MORSE.get(word, '')
         if not decrypted:
-            result += word
-            continue
+            raise ValueError('Word is not a valid morse word.')
         result += decrypted
     return ''.join(result)
 
@@ -174,7 +174,7 @@ def get_command():
     for mode in Mode:
         print(f'{mode.value} - {mode.name.capitalize()}.')
     print(f'{EXIT_COMMANDS_JOINED} - Cancel and exit.')
-    print(f'{EDIT_COMMAND} - Edit the message.')
+    print(f'{NEW_MESSAGE_COMMAND} - Enter new message.')
     cin = input('>> ')
     return cin
 
@@ -199,11 +199,23 @@ def decrypt(string: str, mode: Mode):
     elif mode == Mode.CAESAR:
         decrypted = decrypt_caesar(string)
     elif mode == Mode.BINARY:
-        decrypted = decrypt_binary(string)
+        try:
+            decrypted = decrypt_binary(string)
+        except ValueError:
+            print('!!! Invalid binary !!!')
+            return None
     elif mode == Mode.HEXADECIMAL:
-        decrypted = decrypt_hexadecimal(string)
+        try:
+            decrypted = decrypt_hexadecimal(string)
+        except binascii.Error:
+            print('!!! Invalid hex !!!')
+            return None
     elif mode == Mode.MORSE:
-        decrypted = decrypt_morse(string)
+        try:
+            decrypted = decrypt_morse(string)
+        except ValueError:
+            print('!!! Invalid morse !!!')
+            return None
 
     return decrypted
 
@@ -219,7 +231,7 @@ def main():
 
         if cmd in EXIT_COMMANDS:
             break
-        elif cmd == EDIT_COMMAND:
+        elif cmd == NEW_MESSAGE_COMMAND:
             message = get_message()
         else:
             try:
