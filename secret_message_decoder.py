@@ -14,6 +14,9 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+# A CLI decoder for secret messages. Created mainly for decoding secret messages from Andy's Apple Farm, but may be
+# used for any ciphers, I guess.  Morse dict copied from StackOverflow and pretty printed using another short script.
+
 import binascii
 from enum import Enum, auto
 
