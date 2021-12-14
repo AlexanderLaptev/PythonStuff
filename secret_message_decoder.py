@@ -18,9 +18,6 @@
 # ASCII (e.g. English) ciphers, I guess.
 #
 # Supports: Atbash cipher, Caesar cipher, Binary, Hexadecimal, Morse code.
-#
-# The script was designed to be imported and then used. If you, however, need to run it right away, simply add a call
-# to main() at the end of the script.
 
 import binascii
 from enum import Enum, auto
@@ -220,28 +217,28 @@ def decrypt(string: str, mode: Mode):
     return decrypted
 
 
-def main():
-    welcome()
-    message = get_message()
+# The main loop.
+welcome()
+message = get_message()
 
-    while True:
-        print(SEPARATOR)
-        cmd = get_command()
-        print(SEPARATOR)
+while True:
+    print(SEPARATOR)
+    cmd = get_command()
+    print(SEPARATOR)
 
-        if cmd in EXIT_COMMANDS:
-            break
-        elif cmd == NEW_MESSAGE_COMMAND:
-            message = get_message()
+    if cmd in EXIT_COMMANDS:
+        break
+    elif cmd == NEW_MESSAGE_COMMAND:
+        message = get_message()
+    else:
+        try:
+            mode = Mode(int(cmd))
+        except ValueError:
+            print('Invalid mode.')
+            continue
+
+        decrypted = decrypt(message, mode)
+        if decrypted is None:
+            print("!!! Couldn't decrypt the message !!!")
         else:
-            try:
-                mode = Mode(int(cmd))
-            except ValueError:
-                print('Invalid mode.')
-                continue
-
-            decrypted = decrypt(message, mode)
-            if decrypted is None:
-                print("!!! Couldn't decrypt the message !!!")
-            else:
-                print(f'RESULT: {decrypted}')
+            print(f'RESULT: {decrypted}')
