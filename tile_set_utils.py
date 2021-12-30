@@ -57,7 +57,7 @@
 # Notes:
 # When importing an extruded tile set, set spacing and margin as follows:
 # spacing = 2 * <extrusion length> + <original spacing> (e.g. 2 * 1 + 2 = 4)
-# margin = <extrusion length>
+# margin = <original margin> + <extrusion length>
 #
 # The script has undergone some testing, but it may be unstable. Please report any issues on the GitHub issue tracker.
 
@@ -267,6 +267,8 @@ def extrude():
             # endregion
 
     out.save(output_path, optimize=True)
+    print(f'> New spacing: {2 * extrusion_length + spacing} px.')
+    print(f'> New margin: {margin + extrusion_length} px.')
 
 
 MODES['layout'] = layout
