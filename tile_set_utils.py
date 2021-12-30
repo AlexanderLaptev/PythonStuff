@@ -82,9 +82,8 @@ PARAMS_ERROR = 'Invalid number of parameters'
 def halt(msg: str):
     print('!!! Error: ' + msg + ' !!!', file=sys.stderr)
     sys.exit(-1)
-
-
 # endregion
+
 
 # region Parse required arguments
 parser = argparse.ArgumentParser()
@@ -130,10 +129,7 @@ if os.path.exists(output_path):
 else:
     if mode == 'extract':
         os.makedirs(output_path)
-
-
 # endregion
-
 
 # region Processing functions
 def layout():
