@@ -18,21 +18,45 @@
 # Requires Pillow (fork of PIL) to work.
 
 import argparse
+import math
 import os
 import sys
 import time
-import math
+
 from PIL import Image
 
-parser = argparse.ArgumentParser('Performs common operations with tile set images.')
+MODES = {
+    'layout': None,
+    'pow2': None,
+    'extract': None,
+    'extrude': None,
+}
+PARAMS_ERROR = 'Invalid number of parameters'
+
+
+# region General purpose functions
+def halt(msg: str):
+    print('!!! Error: ' + msg + ' !!!', file=sys.stderr)
+    sys.exit(-1)
+
+
+# endregion
+
+# region Parse required arguments
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    '-w', '--overwrite',
+    help='Overwrite output if it exists.',
+    action='store_true'
+)
 parser.add_argument(
     'input',
-    help='Input file path',
+    help='Input file path.',
     nargs=1
 )
 parser.add_argument(
     'mode',
-    choices=['pad', 'extend', 'extract', 'compact', 'pow2', 'margin'],
+    choices=MODES,
     nargs=1
 )
 parser.add_argument(
@@ -41,147 +65,175 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
-input_file = args.input[0]
+input_path = args.input[0]
+overwrite = args.overwrite
 mode = args.mode[0]
 params = args.params
+# endregion
 
-directory, file = os.path.split(input_file)
-name, ext = os.path.splitext(file)
-output_path = directory + '/out' if mode == 'extract' else directory + '/' + name + '_out' + ext
+# region Determine output path
+directory, file = os.path.split(input_path)
+name, extension = os.path.splitext(file)
+output_path = directory + '/out' if mode == 'extract' else directory + '/' + name + '_out' + extension
 
-image = Image.open(input_file)
-out = None
-
-
-def pad():
-    global out
-    new_spacing = int(params[PARAM_INDEX + 0])
-
-    tw = (image.width + old_spacing) // (tile_width + old_spacing)
-    th = (image.height + old_spacing) // (tile_height + old_spacing)
-
-    nw = tile_width * tw + new_spacing * (tw - 1) + 2 * margin
-    nh = tile_height * th + new_spacing * (th - 1) + 2 * margin
-    out = Image.new('RGBA', (nw, nh))
-
-    for ty in range(th):
-        for tx in range(tw):
-            x1 = tile_width * tx + old_spacing * tx + margin
-            y1 = tile_height * ty + old_spacing * ty + margin
-            x2 = x1 + tile_width
-            y2 = y1 + tile_height
-            tile = image.crop((x1, y1, x2, y2))
-
-            x1 = tile_width * tx + new_spacing * tx + margin
-            y1 = tile_height * ty + new_spacing * ty + margin
-            out.paste(tile, (x1, y1))
-
-
-def extend():
-    global out
-    new_spacing = int(params[PARAM_INDEX + 0])
-    extension = int(params[PARAM_INDEX + 1])
-
-    tw = (image.width + old_spacing) // (tile_width + old_spacing)
-    th = (image.height + old_spacing) // (tile_height + old_spacing)
-
-    nw = tile_width * tw + new_spacing * (tw - 1) + 2 * margin
-    nh = tile_height * th + new_spacing * (th - 1) + 2 * margin
-    out = Image.new('RGBA', (nw, nh))
-
-    for ty in range(th):
-        for tx in range(tw):
-            x1 = tile_width * tx + old_spacing * tx + margin
-            y1 = tile_height * ty + old_spacing * ty + margin
-            x2 = x1 + tile_width
-            y2 = y1 + tile_height
-            tile = image.crop((x1, y1, x2, y2))
-
-            x1 = tile_width * tx + new_spacing * tx + margin
-            y1 = tile_height * ty + new_spacing * ty + margin
-            out.paste(tile, (x1, y1))
-
-
-def extract():
-    if not os.path.exists(output_path):
-        os.mkdir(output_path)
+# Check if the output path already exists
+if os.path.exists(output_path):
+    if not overwrite or mode == 'extract':
+        halt('Output dir/file already exists')
     else:
-        print('!!! Output file already exists !!!', file=sys.stderr)
-        exit(-1)
-    tw = (image.width + old_spacing) // (tile_width + old_spacing)
-    th = (image.height + old_spacing) // (tile_height + old_spacing)
-
-    i = 0
-    for ty in range(th):
-        for tx in range(tw):
-            i += 1
-            x1 = tile_width * tx + old_spacing * tx + margin
-            y1 = tile_height * ty + old_spacing * ty + margin
-            x2 = x1 + tile_width
-            y2 = y1 + tile_height
-            tile = image.crop((x1, y1, x2, y2))
-            tile.save(output_path + '/' + str(i) + ext)
+        print('> Output path exists, overwriting.')
+        os.remove(output_path)
+else:
+    if mode == 'extract':
+        os.makedirs(output_path)
 
 
-def compact():
-    global out
-
-    tw = (image.width + old_spacing) // (tile_width + old_spacing)
-    th = (image.height + old_spacing) // (tile_height + old_spacing)
-
-    nw = tile_width * tw + 2 * margin
-    nh = tile_height * th + 2 * margin
-    out = Image.new('RGBA', (nw, nh))
-
-    for ty in range(th):
-        for tx in range(tw):
-            x1 = tile_width * tx + old_spacing * tx + margin
-            y1 = tile_height * ty + old_spacing * ty + margin
-            x2 = x1 + tile_width
-            y2 = y1 + tile_height
-            tile = image.crop((x1, y1, x2, y2))
-
-            x1 = tile_width * tx + margin
-            y1 = tile_height * ty + margin
-            out.paste(tile, (x1, y1))
+# endregion
 
 
-def pow2():
-    global out
-    nw = int(math.pow(2, math.ceil(math.log2(image.width))))
-    nh = int(math.pow(2, math.ceil(math.log2(image.height))))
-    out = Image.new('RGBA', (nw, nh))
-    out.paste(image, (0, 0))
-
-
-if len(params) >= 4:
+# region Processing functions
+def layout():
+    if len(params) != 6:
+        halt(PARAMS_ERROR)
     tile_width = int(params[0])
     tile_height = int(params[1])
     old_spacing = int(params[2])
+    old_margin = int(params[3])
+    new_spacing = int(params[4])
+    new_margin = int(params[5])
+    image = Image.open(input_path)
+
+    tiles_horizontal = (image.width - 2 * old_margin + old_spacing) // (tile_width + old_spacing)
+    tiles_vertical = (image.height - 2 * old_margin + old_spacing) // (tile_height + old_spacing)
+
+    new_width = 2 * new_margin + tile_width * tiles_horizontal + new_spacing * (tiles_horizontal - 1)
+    new_height = 2 * new_margin + tile_height * tiles_vertical + new_spacing * (tiles_vertical - 1)
+    output = Image.new('RGBA', (new_width, new_height))
+
+    for tile_y in range(tiles_vertical):
+        for tile_x in range(tiles_horizontal):
+            # Extract tile
+            x1 = old_margin + (tile_width + old_spacing) * tile_x
+            y1 = old_margin + (tile_height + old_spacing) * tile_y
+            x2 = x1 + tile_width
+            y2 = y1 + tile_height
+            tile = image.crop((x1, y1, x2, y2))
+
+            x1 = new_margin + (tile_width + new_spacing) * tile_x
+            y1 = new_margin + (tile_height + new_spacing) * tile_y
+            output.paste(tile, (x1, y1))
+    output.save(output_path, optimize=True)
+
+
+def pow2():
+    image = Image.open(input_path)
+    new_width = 2 ** math.ceil(math.log2(image.width))
+    new_height = 2 ** math.ceil(math.log2(image.height))
+    out = Image.new('RGBA', (new_width, new_height))
+    out.paste(image, (0, 0))
+    out.save(output_path, optimize=True)
+
+
+def extract():
+    if len(params) != 4:
+        halt(PARAMS_ERROR)
+    tile_width = int(params[0])
+    tile_height = int(params[1])
+    old_spacing = int(params[2])
+    old_margin = int(params[3])
+    image = Image.open(input_path)
+
+    tiles_horizontal = (image.width - 2 * old_margin + old_spacing) // (tile_width + old_spacing)
+    tiles_vertical = (image.height - 2 * old_margin + old_spacing) // (tile_height + old_spacing)
+
+    index = 0
+    for tile_y in range(tiles_vertical):
+        for tile_x in range(tiles_horizontal):
+            index += 1
+
+            # Extract tile
+            x1 = old_margin + (tile_width + old_spacing) * tile_x
+            y1 = old_margin + (tile_height + old_spacing) * tile_y
+            x2 = x1 + tile_width
+            y2 = y1 + tile_height
+            tile = image.crop((x1, y1, x2, y2))
+
+            tile.save(output_path + '/' + str(index) + extension, optimize=True)
+
+
+def extrude():
+    if len(params) != 5:
+        halt(PARAMS_ERROR)
+    tile_width = int(params[0])
+    tile_height = int(params[1])
+    spacing = int(params[2])
     margin = int(params[3])
-PARAM_INDEX = 4
+    extrusion_length = int(params[4])
+    image = Image.open(input_path)
 
-start = time.time()
-if mode == 'pad':
-    pad()
-elif mode == 'extend':
-    extend()
-elif mode == 'extract':
-    extract()
-elif mode == 'compact':
-    compact()
-elif mode == 'pow2':
-    pow2()
-elif mode == 'margin':
-    new_margin = int(params[0])
-    out = Image.new('RGBA', (image.width + 2 * new_margin, image.height + 2 * new_margin))
-    out.paste(image, (new_margin, new_margin))
+    tiles_horizontal = (image.width - 2 * margin + spacing) // (tile_width + spacing)
+    tiles_vertical = (image.height - 2 * margin + spacing) // (tile_height + spacing)
 
-if out is not None:
-    if os.path.exists(output_path):
-        print('!!! Output file already exists !!!', file=sys.stderr)
-        exit(-1)
-    out.save(output_path)
+    new_width = 2 * margin + \
+                tile_width * tiles_horizontal + \
+                spacing * (tiles_horizontal - 1) + \
+                2 * extrusion_length * tiles_horizontal
+    new_height = 2 * margin + \
+                 tile_height * tiles_vertical + \
+                 spacing * (tiles_vertical - 1) + \
+                 2 * extrusion_length * tiles_vertical
+    out = Image.new('RGBA', (new_width, new_height))
 
-end = time.time()
-print(f'Done in {round(end - start, 3)}s.')
+    for tile_y in range(tiles_vertical):
+        for tile_x in range(tiles_horizontal):
+            # Extract tile
+            x1 = margin + (tile_width + spacing) * tile_x
+            y1 = margin + (tile_height + spacing) * tile_y
+            x2 = x1 + tile_width
+            y2 = y1 + tile_height
+            tile = image.crop((x1, y1, x2, y2))
+
+            # Paste
+            x1 = margin + extrusion_length + (2 * extrusion_length + tile_width + spacing) * tile_x
+            y1 = margin + extrusion_length + (2 * extrusion_length + tile_height + spacing) * tile_y
+            out.paste(tile, (x1, y1))
+
+            # region Extrude
+            # Left
+            strip = tile.crop((0, 0, 1, tile_height))
+            for i in range(extrusion_length):
+                out.paste(strip, (x1 - 1 - i, y1))
+
+            # Right
+            strip = tile.crop((tile_width - 1, 0, tile_width, tile_height))
+            for i in range(extrusion_length):
+                out.paste(strip, (x1 + tile_width + i, y1))
+
+            # Top
+            strip = tile.crop((0, 0, tile_width, 1))
+            for i in range(extrusion_length):
+                out.paste(strip, (x1, y1 - 1 - i))
+
+            # Bottom
+            strip = tile.crop((0, tile_height - 1, tile_width, tile_height))
+            for i in range(extrusion_length):
+                out.paste(strip, (x1, y1 + tile_height + i))
+            # endregion
+
+    out.save(output_path, optimize=True)
+
+
+MODES['layout'] = layout
+MODES['pow2'] = pow2
+MODES['extract'] = extract
+MODES['extrude'] = extrude
+# endregion
+
+func = MODES[mode]
+if func is None:
+    halt('Mode not yet implemented')
+else:
+    start = time.time()
+    func()
+    end = time.time()
+    print(f'Done in {round(end - start, 3)}s.')
