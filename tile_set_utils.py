@@ -17,6 +17,50 @@
 # A tool that allows some operations on tile set images. Should support all common image formats.
 # Requires Pillow (fork of PIL) to work.
 
+# General usage: [-w] <input path> <mode> [params]
+# Available modes: layout, pow2, extract, extrude.
+#
+# Output file/directory is either <current dir>/<input file>_out.<extension> or <current dir>/out, depending on
+# the mode.
+#
+# Options:
+# -w: Overwrite existing files. Does not overwrite directories (e.g. for the 'extract' mode).
+#
+# Mode descriptions
+# layout: change padding and/or margin.
+# pow2: make each dimension of the image a power of two (e.g. 184x652 -> 256x1024).
+# extract: extract tiles from the image.
+# extrude: tries to fix tile rendering artifacts by extruding the sides of each tile.
+#
+# Params for modes:
+# layout: <tile width> <tile height> <old spacing> <old margin> <new spacing> <new margin>
+# pow2: no parameters
+# extract: <tile width> <tile height> <spacing> <margin>
+# extrude: <tile width> <tile height> <spacing> <margin> <extrusion length>
+#
+# Example:
+#
+# Remove spacing and margin:
+# -w test/test.png layout 64 64 2 1 0 0
+# Overwrite output file test/test.png (relative to the script directory). Set mode to 'layout'.
+# Tile width = 64, tile height = 64
+# Old spacing = 2, old margin = 1
+# New spacing = 0, new margin = 0
+#
+# Extrude sides:
+# -w test/test.png extrude 64 64 0 0 1
+# Overwrite output file, set mode to 'extrude'.
+# Tile width = 64, tile height = 64
+# No spacing, no margin
+# Extrude 1 px
+#
+# Notes:
+# When importing an extruded tile set, set spacing and margin as follows:
+# spacing = 2 * <extrusion length> + <original spacing> (e.g. 2 * 1 + 2 = 4)
+# margin = <extrusion length>
+#
+# The script has undergone some testing, but it may be unstable. Please report any issues on the GitHub issue tracker.
+
 import argparse
 import math
 import os
@@ -103,6 +147,7 @@ def layout():
     new_margin = int(params[5])
     image = Image.open(input_path)
 
+    # Derived using "complicated" algebra.
     tiles_horizontal = (image.width - 2 * old_margin + old_spacing) // (tile_width + old_spacing)
     tiles_vertical = (image.height - 2 * old_margin + old_spacing) // (tile_height + old_spacing)
 
@@ -199,8 +244,9 @@ def extrude():
             out.paste(tile, (x1, y1))
 
             # region Extrude
+            # I really hate this part because of the repetitive code, but there seems to be no way around this.
             # Left
-            strip = tile.crop((0, 0, 1, tile_height))
+            strip = tile.crop((0, 0, 1, tile_height))  # I spent half a day figuring all the coordinates in this script.
             for i in range(extrusion_length):
                 out.paste(strip, (x1 - 1 - i, y1))
 
@@ -233,7 +279,7 @@ func = MODES[mode]
 if func is None:
     halt('Mode not yet implemented')
 else:
-    start = time.time()
+    start = time.time()  # perf_counter() is too precise for such tasks.
     func()
     end = time.time()
     print(f'Done in {round(end - start, 3)}s.')
